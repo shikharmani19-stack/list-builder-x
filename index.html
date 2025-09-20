@@ -6,6 +6,15 @@
     
     <!-- Resource hints for critical loading performance -->
     <link rel="preload" href="/src/main.tsx" as="script" crossorigin />
+    <link rel="dns-prefetch" href="//fonts.googleapis.com" />
+    
+    <!-- Critical inline styles to prevent FOUC -->
+    <style>
+      /* Minimal critical styles to prevent layout shift */
+      #root { min-height: 100vh; }
+      body { margin: 0; font-family: system-ui, -apple-system, sans-serif; }
+      .glass-card { backdrop-filter: blur(16px); }
+    </style>
     
     <title>Task Manager - Organize Your Tasks with Style</title>
     <meta name="description" content="A beautiful and interactive task manager with dark mode, priority levels, search, drag & drop reordering, and persistent storage." />
