@@ -8,6 +8,16 @@ import { TaskItem } from "./TaskItem";
 import { TaskFilters } from "./TaskFilters";
 import { DragDropTaskList } from "./DragDropTaskList";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  validateTaskText, 
+  validateTaskCount, 
+  validateSearchQuery,
+  validateTaskData,
+  sanitizeText,
+  safeLocalStorageSet,
+  safeLocalStorageGet,
+  getSecurityErrorMessage 
+} from "@/lib/security";
 
 export interface Task {
   id: string;
@@ -30,33 +40,44 @@ export const TaskManager = () => {
 
   // Load tasks from localStorage on mount
   useEffect(() => {
-    const savedTasks = localStorage.getItem("taskManager_tasks");
-    if (savedTasks) {
-      try {
-        const parsed = JSON.parse(savedTasks);
-        setTasks(parsed.map((task: any) => ({
-          ...task,
-          createdAt: new Date(task.createdAt)
-        })));
-      } catch (error) {
-        console.error("Error loading tasks:", error);
+    try {
+      const savedTasks = safeLocalStorageGet("taskManager_tasks", []);
+      if (Array.isArray(savedTasks)) {
+        const validTasks = savedTasks
+          .filter(validateTaskData)
+          .map((task: any) => ({
+            ...task,
+            text: sanitizeText(task.text),
+            createdAt: new Date(task.createdAt)
+          }));
+        setTasks(validTasks);
       }
+    } catch (error) {
+      toast({
+        title: "Data Loading Error",
+        description: getSecurityErrorMessage(error instanceof Error ? error.name : 'Unknown'),
+        variant: "destructive",
+      });
     }
 
-    const savedDarkMode = localStorage.getItem("taskManager_darkMode");
-    if (savedDarkMode) {
-      setDarkMode(JSON.parse(savedDarkMode));
-    }
+    const savedDarkMode = safeLocalStorageGet("taskManager_darkMode", true);
+    setDarkMode(savedDarkMode);
   }, []);
 
   // Save tasks to localStorage whenever tasks change
   useEffect(() => {
-    localStorage.setItem("taskManager_tasks", JSON.stringify(tasks));
+    if (!safeLocalStorageSet("taskManager_tasks", tasks)) {
+      toast({
+        title: "Storage Error",
+        description: "Unable to save tasks. Storage may be full.",
+        variant: "destructive",
+      });
+    }
   }, [tasks]);
 
   // Save dark mode preference
   useEffect(() => {
-    localStorage.setItem("taskManager_darkMode", JSON.stringify(darkMode));
+    safeLocalStorageSet("taskManager_darkMode", darkMode);
     if (darkMode) {
       document.documentElement.classList.add("dark");
     } else {
@@ -77,10 +98,23 @@ export const TaskManager = () => {
   });
 
   const addTask = () => {
-    if (!newTask.trim()) {
+    // Validate task text
+    const textValidation = validateTaskText(newTask);
+    if (!textValidation.isValid) {
       toast({
-        title: "Error",
-        description: "Please enter a task description",
+        title: "Invalid Input",
+        description: textValidation.error,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate task count
+    const countValidation = validateTaskCount(tasks.length);
+    if (!countValidation.isValid) {
+      toast({
+        title: "Limit Reached",
+        description: countValidation.error,
         variant: "destructive",
       });
       return;
@@ -88,7 +122,7 @@ export const TaskManager = () => {
 
     const task: Task = {
       id: crypto.randomUUID(),
-      text: newTask.trim(),
+      text: sanitizeText(newTask.trim()),
       completed: false,
       priority: newTaskPriority,
       createdAt: new Date(),
@@ -99,7 +133,7 @@ export const TaskManager = () => {
     
     toast({
       title: "Task Added",
-      description: "Your task has been added successfully",
+      description: "Task added successfully",
     });
   };
 
@@ -118,8 +152,19 @@ export const TaskManager = () => {
   };
 
   const editTask = (id: string, newText: string) => {
+    // Validate edited text
+    const textValidation = validateTaskText(newText);
+    if (!textValidation.isValid) {
+      toast({
+        title: "Invalid Edit",
+        description: textValidation.error,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setTasks(prev => prev.map(task =>
-      task.id === id ? { ...task, text: newText } : task
+      task.id === id ? { ...task, text: sanitizeText(newText.trim()) } : task
     ));
   };
 
@@ -203,9 +248,15 @@ export const TaskManager = () => {
               <Input
                 placeholder="Add a new task..."
                 value={newTask}
-                onChange={(e) => setNewTask(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value.length <= 1000) {
+                    setNewTask(value);
+                  }
+                }}
                 onKeyPress={handleKeyPress}
                 className="h-12 text-lg"
+                maxLength={1000}
               />
             </div>
             <div className="md:col-span-3">
@@ -236,8 +287,15 @@ export const TaskManager = () => {
             <Input
               placeholder="Search tasks..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                const searchValidation = validateSearchQuery(value);
+                if (searchValidation.isValid) {
+                  setSearchQuery(value);
+                }
+              }}
               className="pl-10 h-12"
+              maxLength={100}
             />
           </div>
 
