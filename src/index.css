@@ -134,6 +134,23 @@
 }
 
 @layer components {
+  /* Prototype: Buttons & Cards */
+  .btn-hero {
+    @apply bg-primary text-primary-foreground px-6 py-3 rounded-lg shadow-glow hover:shadow-lg hover:-translate-y-0.5 transition-spring;
+  }
+
+  .btn-secondary {
+    @apply border border-primary/30 text-primary hover:bg-primary/10 px-6 py-3 rounded-lg transition-spring;
+  }
+
+  .card-floating {
+    @apply bg-card border border-border rounded-xl shadow-card hover:shadow-glow hover:-translate-y-1 transition-spring;
+  }
+
+  .interactive-glow {
+    @apply hover:ring-1 hover:ring-primary/30 hover:shadow-glow transition-spring;
+  }
+
   /* Task Priority Badges */
   .priority-high {
     @apply bg-gradient-to-r from-red-500 to-red-600 text-white;
